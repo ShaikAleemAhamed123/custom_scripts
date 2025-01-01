@@ -1,0 +1,114 @@
+#!/bin/bash
+TASK_FILE="$HOME/tasks.json"
+
+# Ensure the tasks.json file exists
+if [ ! -f "$TASK_FILE" ]; then
+    echo "[]" > "$TASK_FILE"
+fi
+
+# Function to add a task
+add_task() {
+    local description="$1"
+    local current_date
+    current_date=$(date +"%Y-%m-%d %H:%M:%S")
+    local new_task=$(jq -n --arg desc "$description" --arg date "$current_date" \
+        '{id: (now | floor | tostring), description: $desc, create_date: ($date | split(" ") | .[0]), last_update: $date, status: "pending"}')
+
+    # Append the new task to the JSON file
+    jq ". + [$new_task]" "$TASK_FILE" > temp.json && mv temp.json "$TASK_FILE"
+    echo "Task added."
+}
+
+# Function to colorize the status
+color_status() {
+    local status="$1"
+    if [[ "$status" == "pending" ]]; then
+        echo -e "\033[31m$status\033[0m"  # Red for pending
+    elif [[ "$status" == "done" || "$status" == "completed" ]]; then
+        echo -e "\033[32m$status\033[0m"  # Green for done/completed
+    else
+        echo -e "\033[33m$status\033[0m"  # Yellow for others
+    fi
+}
+
+# Function to list tasks in a tabular format
+list_tasks() {
+    # Print the table headers with fixed spacing
+    printf "%-30s %-100s %-12s %-12s %-12s\n" "ID" "Description" "Create Date" "Last Update" "Status"
+    printf "%-30s %-100s %-12s %-12s %-12s\n" "------------------------------" "----------------------------------------------------------------------------------------------------" "-----------" "-----------" "----------"
+
+    # Use jq to extract data and format it
+    jq -r '.[] | [.id, .description, .create_date, .last_update, .status] | @tsv' "$TASK_FILE" | while IFS=$'\t' read -r id description create_date last_update status; do
+        # Trim the description and colorize the status
+        description=$(echo "$description" | xargs)  # Trim spaces
+        status_colored=$(color_status "$status")
+
+        # Format and display the task with adjusted ID and description column widths
+        printf "%-30s %-100s %-12s %-12s %-12s\n" "$id" "${description:0:100}" "$create_date" "${last_update:0:10}" "$status_colored"
+    done
+}
+
+# Function to remove a task by ID
+remove_task() {
+    local id="$1"
+    jq "map(select(.id != \"$id\"))" "$TASK_FILE" > temp.json && mv temp.json "$TASK_FILE"
+    echo "Task removed."
+}
+
+# Function to update task description by ID
+update_description() {
+    local id="$1"
+    local new_description="$2"
+    local current_date
+    current_date=$(date +"%Y-%m-%d %H:%M:%S")
+
+    # Update the task description and last update date
+    jq "map(if .id | tostring == \"$id\" then \
+        .description = \"$new_description\" | \
+        .last_update = \"$current_date\" \
+        else . end)" \
+        "$TASK_FILE" > temp.json && mv temp.json "$TASK_FILE"
+    echo "Description updated."
+}
+
+# Function to update task status by ID
+update_status() {
+    local id="$1"
+    local new_status="$2"
+    local current_date
+    current_date=$(date +"%Y-%m-%d %H:%M:%S")
+
+    # Update the task status and last update date
+    jq "map(if .id | tostring == \"$id\" then \
+        .status = \"$new_status\" | \
+        .last_update = \"$current_date\" \
+        else . end)" \
+        "$TASK_FILE" > temp.json && mv temp.json "$TASK_FILE"
+    echo "Status updated."
+}
+
+# Parse the command-line arguments
+case "$1" in
+    -a)
+        shift
+        add_task "$*"
+        ;;
+    -l)
+        list_tasks
+        ;;
+    -r)
+        shift
+        remove_task "$1"
+        ;;
+    -ud)
+        shift
+        update_description "$1" "$2"
+        ;;
+    -us)
+        shift
+        update_status "$1" "$2"
+        ;;
+    *)
+        echo "Usage: $0 -a <description> | -l | -r <id> | -ud <id> <new description> | -us <id> <new status>"
+        ;;
+esac

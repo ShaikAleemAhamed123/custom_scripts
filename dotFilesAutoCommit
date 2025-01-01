@@ -1,0 +1,16 @@
+#!/bin/bash
+
+cd /home/aleemahamed/
+
+cp -r /home/aleemahamed/.oh-my-zsh/custom/* /home/aleemahamed/oh_my_zsh_custom/
+
+current_time_stamp=$(date)
+
+if ! git diff --quiet; then
+  git add .
+  git commit -m "$current_time_stemp :: Auto-commit on $(date) by dotFilesAutoCommit.sh Files Cron Job.\n"
+  git push origin master
+else 
+  printf "$current_time_stamp :: No changes to be commited\n"
+fi
+

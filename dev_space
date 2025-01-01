@@ -1,0 +1,25 @@
+#!/bin/bash
+
+base_directory="/mnt/e/Development/";
+
+# project_directory_name=$((cd "/mnt/e/Development/" && ls -altr) | grep -E "^d" | fzf | rev | cut -d' ' -f 1 | rev);
+
+project_directory_name=$((cd "/mnt/e/Development/" && ls ) | fzf);
+
+full_path="${base_directory}${project_directory_name}";
+
+if ! [[ -d "${full_path}" ]]; then
+    tmux new -s "${project_directory_name}" \; \
+        send-keys "nvim ${full_path}" C-m \; \
+        split-window -v -p 20 \; \
+        select-pane -t 0
+    exit;
+fi
+
+echo $full_path
+
+
+cd "${full_path}" && tmux new -s "${project_directory_name}" \; \
+    send-keys "nvim ." C-m \; \
+    split-window -v -p 20 \; \
+    select-pane -t 0

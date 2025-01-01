@@ -1,0 +1,16 @@
+#!/bin/bash
+
+host=$1
+port=$2
+
+# Timeout for the connection attempt
+timeout=5
+
+# Use timeout command to limit the execution time of nc
+status=$(timeout $timeout nc -zv $host $port 2>&1)
+
+if [ $? -eq 124 ]; then
+    echo "Connection to $host on port $port timed out after $timeout seconds."
+else
+    echo $status
+fi
